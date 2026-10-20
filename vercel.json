@@ -1,8 +1,14 @@
 {
   "$schema": "https://openapi.vercel.sh/vercel.json",
   "framework": null,
-  "buildCommand": "mkdir -p public && echo 'queue-consumer daemon' > public/index.html",
+  "buildCommand": "echo 'Static pages are served from public/'",
   "outputDirectory": "public",
+  "cleanUrls": true,
+  "functions": {
+    "api/orders.py": {
+      "excludeFiles": "{.env*,.agents/**,.claude/**,skills-lock.json,.vercel_python_packages/**,public/**,Dockerfile,README.md}"
+    }
+  },
   "daemons": {
     "queue-consumer": {
       "root": ".",

@@ -1,0 +1,110 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Concerts-R-Us · New order</title>
+  <link rel="stylesheet" href="/styles.css">
+</head>
+<body>
+  <header>
+    <strong>Concerts-R-Us</strong>
+    <nav><a href="/" aria-current="page">New order</a><a href="/orders">Orders</a></nav>
+  </header>
+  <main>
+    <h1>Enqueue an order</h1>
+    <p class="muted">Orders are sent to the <code>orders</code> queue and processed by the queue-consumer daemon.</p>
+
+    <form id="order-form">
+      <label>Order ID
+        <input name="order_id" required>
+      </label>
+      <label>Customer ID
+        <input name="customer_id" value="cus_demo" required>
+      </label>
+      <fieldset>
+        <legend>Items</legend>
+        <div id="items"></div>
+        <button type="button" id="add-item" class="secondary">Add item</button>
+      </fieldset>
+      <button type="submit">Enqueue order</button>
+    </form>
+    <p id="result" role="status"></p>
+  </main>
+
+  <template id="item-row">
+    <div class="item">
+      <label>SKU
+        <select name="sku">
+          <option value="TIX-GA">TIX-GA · General admission</option>
+          <option value="TIX-VIP">TIX-VIP · VIP</option>
+          <option value="TIX-PIT">TIX-PIT · Pit</option>
+          <option value="MERCH-TEE">MERCH-TEE · Tour tee</option>
+        </select>
+      </label>
+      <label>Qty
+        <input name="quantity" type="number" min="1" value="1" required>
+      </label>
+      <button type="button" class="remove secondary" aria-label="Remove item">×</button>
+    </div>
+  </template>
+
+  <script>
+    const form = document.getElementById("order-form");
+    const items = document.getElementById("items");
+    const result = document.getElementById("result");
+    const rowTemplate = document.getElementById("item-row");
+
+    const newOrderId = () => "ord_" + crypto.randomUUID().slice(0, 8);
+    const addItem = () => {
+      const row = rowTemplate.content.cloneNode(true);
+      row.querySelector(".remove").addEventListener("click", (e) => {
+        if (items.children.length > 1) e.target.closest(".item").remove();
+      });
+      items.appendChild(row);
+    };
+
+    form.order_id.value = newOrderId();
+    addItem();
+    document.getElementById("add-item").addEventListener("click", addItem);
+
+    form.addEventListener("submit", async (event) => {
+      event.preventDefault();
+      const order = {
+        order_id: form.order_id.value.trim(),
+        customer_id: form.customer_id.value.trim(),
+        items: [...items.querySelectorAll(".item")].map((row) => ({
+          sku: row.querySelector("[name=sku]").value,
+          quantity: Number(row.querySelector("[name=quantity]").value),
+        })),
+      };
+      const button = form.querySelector("button[type=submit]");
+      button.disabled = true;
+      result.className = "";
+      result.textContent = "Enqueuing…";
+      try {
+        const res = await fetch("/api/orders", {
+          method: "POST",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify(order),
+        });
+        const body = await res.json().catch(() => ({}));
+        if (!res.ok) {
+          const detail = Array.isArray(body.detail)
+            ? body.detail.map((d) => d.msg).join("; ")
+            : body.detail || res.statusText;
+          throw new Error(`${res.status}: ${detail}`);
+        }
+        result.className = "ok";
+        result.innerHTML = `Queued <code>${body.order_id}</code> (message <code>${body.message_id ?? "pending"}</code>). <a href="/orders">View orders</a>`;
+        form.order_id.value = newOrderId();
+      } catch (err) {
+        result.className = "error";
+        result.textContent = `Failed to enqueue: ${err.message}`;
+      } finally {
+        button.disabled = false;
+      }
+    });
+  </script>
+</body>
+</html>

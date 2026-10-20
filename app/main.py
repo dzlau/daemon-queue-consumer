@@ -8,6 +8,8 @@ import uvicorn
 from fastapi import FastAPI
 from vercel.queue import Message, QueueClient, subscribe
 
+from app import db
+
 logging.basicConfig(
     level=os.getenv("LOG_LEVEL", "INFO").upper(),
     format="%(asctime)s %(levelname)s %(name)s %(message)s",
@@ -17,17 +19,31 @@ logger = logging.getLogger("queue-consumer")
 QUEUE_TOPIC = os.getenv("QUEUE_TOPIC", "orders")
 QUEUE_CONSUMER_GROUP = os.getenv("QUEUE_CONSUMER_GROUP", "fastapi-consumer")
 POLL_INTERVAL_SECONDS = float(os.getenv("POLL_INTERVAL_SECONDS", "1"))
+# Simulated work time so orders are visibly "processing" on the /orders page.
+PROCESSING_DELAY_SECONDS = float(os.getenv("PROCESSING_DELAY_SECONDS", "5"))
 
 
 @subscribe(topic=QUEUE_TOPIC, consumer_group=QUEUE_CONSUMER_GROUP)
 async def process_message(message: Message[dict[str, object]]) -> None:
-    """Replace this body with the application's queue processing logic."""
+    """Replace the simulated work below with the application's processing logic."""
+    order_id = str(message.payload.get("order_id", ""))
+    attempt = message.metadata.delivery_count
     logger.info(
-        "Processing message id=%s attempt=%s payload=%s",
+        "Processing message id=%s order_id=%s attempt=%s payload=%s",
         message.message_id,
-        message.metadata.delivery_count,
+        order_id,
+        attempt,
         message.payload,
     )
+    await db.set_status(order_id, "processing", attempts=attempt)
+    try:
+        await asyncio.sleep(PROCESSING_DELAY_SECONDS)
+    except Exception as exc:
+        # Leave the message unacknowledged so it is redelivered.
+        await db.set_status(order_id, "failed", attempts=attempt, error=str(exc))
+        raise
+    await db.set_status(order_id, "processed", attempts=attempt)
+    logger.info("Processed order_id=%s", order_id)
 
 
 @contextlib.asynccontextmanager

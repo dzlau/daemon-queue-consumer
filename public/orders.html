@@ -1,0 +1,67 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Concerts-R-Us · Orders</title>
+  <link rel="stylesheet" href="/styles.css">
+</head>
+<body>
+  <header>
+    <strong>Concerts-R-Us</strong>
+    <nav><a href="/">New order</a><a href="/orders" aria-current="page">Orders</a></nav>
+  </header>
+  <main class="wide">
+    <h1>Orders</h1>
+    <p class="muted">Refreshes every 2 seconds. <span id="summary"></span></p>
+    <table>
+      <thead>
+        <tr>
+          <th>Order</th><th>Customer</th><th>Items</th><th>Status</th>
+          <th>Attempts</th><th>Message</th><th>Created</th><th>Updated</th>
+        </tr>
+      </thead>
+      <tbody id="rows"><tr><td colspan="8" class="muted">Loading…</td></tr></tbody>
+    </table>
+    <p id="error" class="error" role="alert"></p>
+  </main>
+
+  <script>
+    const rows = document.getElementById("rows");
+    const summary = document.getElementById("summary");
+    const errorEl = document.getElementById("error");
+    const esc = (v) => String(v ?? "").replace(/[&<>"']/g, (c) =>
+      ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c]);
+    const time = (v) => (v ? new Date(v).toLocaleTimeString() : "");
+
+    async function refresh() {
+      try {
+        const res = await fetch("/api/orders", { cache: "no-store" });
+        if (!res.ok) throw new Error(`${res.status} ${res.statusText}`);
+        const { orders } = await res.json();
+        errorEl.textContent = "";
+        const counts = orders.reduce((acc, o) => ((acc[o.status] = (acc[o.status] || 0) + 1), acc), {});
+        summary.textContent = Object.entries(counts).map(([s, n]) => `${n} ${s}`).join(" · ");
+        rows.innerHTML = orders.length
+          ? orders.map((o) => `
+              <tr>
+                <td><code>${esc(o.order_id)}</code></td>
+                <td>${esc(o.customer_id)}</td>
+                <td>${o.items.map((i) => `${esc(i.quantity)}× ${esc(i.sku)}`).join(", ")}</td>
+                <td><span class="badge ${esc(o.status)}">${esc(o.status)}</span>${o.error ? `<br><small class="error">${esc(o.error)}</small>` : ""}</td>
+                <td>${esc(o.attempts)}</td>
+                <td><code>${esc(o.message_id)}</code></td>
+                <td>${time(o.created_at)}</td>
+                <td>${time(o.updated_at)}</td>
+              </tr>`).join("")
+          : `<tr><td colspan="8" class="muted">No orders yet. <a href="/">Create one</a>.</td></tr>`;
+      } catch (err) {
+        errorEl.textContent = `Failed to load orders: ${err.message}`;
+      }
+    }
+
+    refresh();
+    setInterval(refresh, 2000);
+  </script>
+</body>
+</html>

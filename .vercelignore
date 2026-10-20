@@ -1,0 +1,12 @@
+.env
+.env.*
+!.env.example
+.agents
+.claude
+skills-lock.json
+.vercel_python_packages
+pyproject.toml
+uv.lock
+__pycache__
+*.py[cod]
+.venv
