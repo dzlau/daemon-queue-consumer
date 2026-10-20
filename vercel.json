@@ -1,5 +1,8 @@
 {
   "$schema": "https://openapi.vercel.sh/vercel.json",
+  "framework": null,
+  "buildCommand": "mkdir -p public && echo 'queue-consumer daemon' > public/index.html",
+  "outputDirectory": "public",
   "daemons": {
     "queue-consumer": {
       "root": ".",
