@@ -1,0 +1,12 @@
+{
+  "$schema": "https://openapi.vercel.sh/vercel.json",
+  "daemons": {
+    "queue-consumer": {
+      "root": ".",
+      "entrypoint": "Dockerfile",
+      "instances": {
+        "iad1": 1
+      }
+    }
+  }
+}
